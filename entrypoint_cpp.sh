@@ -14,6 +14,26 @@ CPPCHECK_ARGS="${INPUT_CPPCHECK_ARGS//$'\n'/}"
 
 cd build
 
+# NOTE: if you use cmake, then you'll end up also checking a lot of esp-idf
+#       code. I have not figured out how to generate the compile_commands.json
+#       and not also analyze the esp-idf files.
+if [ "$INPUT_USE_CMAKE" = true ]; then
+    apt-get update && apt-get install -y python3 python3-venv cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+    (
+        # inside parentheses to avoid setting variables in the current shell
+        echo "Installing ESP-IDF"
+        mkdir -p ~/esp
+        git clone -b ${INPUT_ESP_IDF_VERSION} --depth=1 --recursive https://github.com/espressif/esp-idf.git ~/esp/esp-idf
+        echo "Installing ESP-IDF tools"
+        ~/esp/esp-idf/install.sh esp32
+        echo "Setting up ESP-IDF"
+        . ~/esp/esp-idf/export.sh
+        echo "Building project"
+        cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON "$INPUT_CMAKE_ARGS" .. -G Ninja
+        ninja
+    )
+fi
+
 if [ "$INPUT_REPORT_PR_CHANGES_ONLY" = true ]; then
   if [ -z "$preselected_files" ]; then
         # Create empty files
@@ -24,13 +44,6 @@ if [ "$INPUT_REPORT_PR_CHANGES_ONLY" = true ]; then
         python3 -m src.static_analysis_cpp -cc "${GITHUB_WORKSPACE}/build/cppcheck.txt" -ct "${GITHUB_WORKSPACE}/build/clang_tidy.txt" -o "$print_to_console" -fk "$use_extra_directory" --common "$common_ancestor" --head "origin/$GITHUB_HEAD_REF"
         exit 0
    fi
-fi
-
-if [ "$INPUT_USE_CMAKE" = true ]; then
-    # Trim trailing newlines
-    INPUT_CMAKE_ARGS="${INPUT_CMAKE_ARGS%"${INPUT_CMAKE_ARGS##*[![:space:]]}"}"
-    debug_print "Running cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON $INPUT_CMAKE_ARGS -S $GITHUB_WORKSPACE -B $(pwd)"
-    eval "cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON $INPUT_CMAKE_ARGS -S $GITHUB_WORKSPACE -B $(pwd)"
 fi
 
 if [ -z "$INPUT_EXCLUDE_DIR" ]; then

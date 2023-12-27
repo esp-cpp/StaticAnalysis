@@ -17,6 +17,7 @@ check_python=$( [ "${INPUT_LANGUAGE,,}" = "python" ] && echo "true" || echo "fal
 
 # Some debug info
 debug_print "Print to console = $print_to_console"
+debug_print "Using ESP-IDF Version = $INPUT_ESP_IDF_VERSION"
 
 if [ "$print_to_console" = true ]; then
     echo "The 'force_console_print' option is enabled. Printing output to console."
